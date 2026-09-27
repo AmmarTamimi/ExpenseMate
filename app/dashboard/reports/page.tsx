@@ -25,8 +25,8 @@ import {
   BarChart3,
   PieChart as PieIcon,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import Sidebar from "../../components/Sidebar";
+import TopBar from "../../components/TopBar";
 
 /* ---------- Sample data (replace with real data later) ---------- */
 
@@ -39,23 +39,102 @@ type ReportItem = {
 };
 
 const SAMPLE: ReportItem[] = [
-  { id: "1", date: "2024-02-01", category: "Transport", amount: 126.3, type: "expense" },
-  { id: "2", date: "2024-02-01", category: "Travel", amount: 210.0, type: "expense" },
-  { id: "3", date: "2024-02-03", category: "Dining", amount: 32.54, type: "expense" },
-  { id: "4", date: "2024-02-03", category: "Dining", amount: 14.2, type: "expense" },
-  { id: "5", date: "2024-02-03", category: "Shopping", amount: 22.4, type: "expense" },
-  { id: "6", date: "2024-02-04", category: "Transport", amount: 5.1, type: "expense" },
-  { id: "7", date: "2024-02-04", category: "Office", amount: 6.12, type: "expense" },
-  { id: "8", date: "2024-02-04", category: "Dining", amount: 42.6, type: "expense" },
-  { id: "9", date: "2024-02-04", category: "Groceries", amount: 15.0, type: "expense" },
-  { id: "10", date: "2024-02-05", category: "Salary", amount: 2450.0, type: "income" },
-  { id: "11", date: "2024-02-15", category: "Freelance", amount: 450.0, type: "income" },
-  { id: "12", date: "2024-02-18", category: "Groceries", amount: 78.9, type: "expense" },
+  {
+    id: "1",
+    date: "2024-02-01",
+    category: "Transport",
+    amount: 126.3,
+    type: "expense",
+  },
+  {
+    id: "2",
+    date: "2024-02-01",
+    category: "Travel",
+    amount: 210.0,
+    type: "expense",
+  },
+  {
+    id: "3",
+    date: "2024-02-03",
+    category: "Dining",
+    amount: 32.54,
+    type: "expense",
+  },
+  {
+    id: "4",
+    date: "2024-02-03",
+    category: "Dining",
+    amount: 14.2,
+    type: "expense",
+  },
+  {
+    id: "5",
+    date: "2024-02-03",
+    category: "Shopping",
+    amount: 22.4,
+    type: "expense",
+  },
+  {
+    id: "6",
+    date: "2024-02-04",
+    category: "Transport",
+    amount: 5.1,
+    type: "expense",
+  },
+  {
+    id: "7",
+    date: "2024-02-04",
+    category: "Office",
+    amount: 6.12,
+    type: "expense",
+  },
+  {
+    id: "8",
+    date: "2024-02-04",
+    category: "Dining",
+    amount: 42.6,
+    type: "expense",
+  },
+  {
+    id: "9",
+    date: "2024-02-04",
+    category: "Groceries",
+    amount: 15.0,
+    type: "expense",
+  },
+  {
+    id: "10",
+    date: "2024-02-05",
+    category: "Salary",
+    amount: 2450.0,
+    type: "income",
+  },
+  {
+    id: "11",
+    date: "2024-02-15",
+    category: "Freelance",
+    amount: 450.0,
+    type: "income",
+  },
+  {
+    id: "12",
+    date: "2024-02-18",
+    category: "Groceries",
+    amount: 78.9,
+    type: "expense",
+  },
 ];
 
 /* ---------- Chart colors ---------- */
 
-const EXPENSE_COLORS = ["#3D4CEA", "#F0A825", "#8B5CF6", "#10B981", "#EF4444", "#6366F1"];
+const EXPENSE_COLORS = [
+  "#3D4CEA",
+  "#F0A825",
+  "#8B5CF6",
+  "#10B981",
+  "#EF4444",
+  "#6366F1",
+];
 const INCOME_COLOR = "#10B981";
 const EXPENSE_COLOR = "#EF4444";
 
@@ -132,7 +211,10 @@ export default function ReportsPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState<ReportItem[]>(SAMPLE);
   const [month, setMonth] = useState<string>("2024-02");
-  const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+  const [toast, setToast] = useState<{
+    kind: "ok" | "err";
+    msg: string;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const availableMonths = useMemo(() => {
@@ -142,7 +224,7 @@ export default function ReportsPage() {
 
   const monthData = useMemo(
     () => data.filter((d) => monthKey(d.date) === month),
-    [data, month]
+    [data, month],
   );
 
   const totals = useMemo(() => {
@@ -175,7 +257,7 @@ export default function ReportsPage() {
       categoryBreakdown
         .filter((c) => c.expense > 0)
         .map((c) => ({ name: c.category, value: c.expense })),
-    [categoryBreakdown]
+    [categoryBreakdown],
   );
 
   /* ---------- Handlers ---------- */
@@ -200,7 +282,10 @@ export default function ReportsPage() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    flash("ok", `Exported ${monthData.length} rows for ${formatMonthLabel(month)}.`);
+    flash(
+      "ok",
+      `Exported ${monthData.length} rows for ${formatMonthLabel(month)}.`,
+    );
   };
 
   const handleImportClick = () => fileInputRef.current?.click();
@@ -261,11 +346,13 @@ export default function ReportsPage() {
                 onChange={(e) => setMonth(e.target.value)}
                 className="bg-transparent text-sm font-medium text-ink-900 focus:outline-none"
               >
-                {(availableMonths.length ? availableMonths : [month]).map((m) => (
-                  <option key={m} value={m}>
-                    {formatMonthLabel(m)}
-                  </option>
-                ))}
+                {(availableMonths.length ? availableMonths : [month]).map(
+                  (m) => (
+                    <option key={m} value={m}>
+                      {formatMonthLabel(m)}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
 
@@ -371,7 +458,11 @@ export default function ReportsPage() {
                     data={categoryBreakdown}
                     margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EEF0F6" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#EEF0F6"
+                    />
                     <XAxis
                       dataKey="category"
                       tick={{ fontSize: 11, fill: "#6E6E85" }}
@@ -384,15 +475,23 @@ export default function ReportsPage() {
                       tickLine={false}
                     />
                     <Tooltip
-                      formatter={(v: number) => `${v.toFixed(2)}€`}
+                      formatter={(value) => `${Number(value ?? 0).toFixed(2)}€`}
                       contentStyle={{
                         borderRadius: 12,
                         border: "1px solid #E6E4F1",
                         fontSize: 12,
                       }}
                     />
-                    <Bar dataKey="income" fill={INCOME_COLOR} radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="expense" fill={EXPENSE_COLOR} radius={[6, 6, 0, 0]} />
+                    <Bar
+                      dataKey="income"
+                      fill={INCOME_COLOR}
+                      radius={[6, 6, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expense"
+                      fill={EXPENSE_COLOR}
+                      radius={[6, 6, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -435,13 +534,15 @@ export default function ReportsPage() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(v: number) => `${v.toFixed(2)}€`}
-                      contentStyle={{
-                        borderRadius: 12,
-                        border: "1px solid #E6E4F1",
-                        fontSize: 12,
-                      }}
-                    />
+  formatter={(value) =>
+    `${Number(value ?? 0).toFixed(2)}€`
+  }
+  contentStyle={{
+    borderRadius: 12,
+    border: "1px solid #E6E4F1",
+    fontSize: 12,
+  }}
+/>
                     <Legend
                       iconType="circle"
                       wrapperStyle={{ fontSize: 12, color: "#6E6E85" }}
@@ -455,7 +556,8 @@ export default function ReportsPage() {
 
         {/* Footer note */}
         <p className="mt-6 text-center text-[11px] text-ink-400">
-          CSV format: <code>Date,Category,Type,Amount</code> · Date as <code>YYYY-MM-DD</code>
+          CSV format: <code>Date,Category,Type,Amount</code> · Date as{" "}
+          <code>YYYY-MM-DD</code>
         </p>
       </main>
     </div>

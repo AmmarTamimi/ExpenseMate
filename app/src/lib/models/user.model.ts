@@ -4,7 +4,8 @@ import { randomUUID } from "crypto";
 
 export interface IUser extends Document {
   userId: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   createdAt: Date;
@@ -20,7 +21,14 @@ const userSchema = new Schema<IUser>(
       unique: true,
       default: () => randomUUID(),
     },
-    name: {
+    firstName: {
+      type: String,
+      required: [true, "Name is required"],
+      trim: true,
+      minlength: 2,
+      maxlength: 60,
+    },
+    lastName: {
       type: String,
       required: [true, "Name is required"],
       trim: true,

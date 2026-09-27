@@ -11,8 +11,9 @@ import {
   TrendingDown,
   ShieldCheck,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import Sidebar from "../../components/Sidebar";
+import TopBar from "../../components/TopBar";
+
 
 /* ---------- Sample data (replace with real user later) ---------- */
 
