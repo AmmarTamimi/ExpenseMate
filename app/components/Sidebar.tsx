@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { X } from "lucide-react";
 import Logo from "./Logo";
 
 const NAV_ITEMS = [
@@ -23,6 +24,7 @@ export default function Sidebar({
 
   return (
     <>
+      {/* Mobile backdrop */}
       {open && (
         <button
           aria-label="Close menu"
@@ -30,51 +32,66 @@ export default function Sidebar({
           className="fixed inset-0 z-30 bg-ink-900/30 backdrop-blur-sm lg:hidden"
         />
       )}
+
       <aside
-        className={`fixed z-40 flex h-full w-72 flex-col justify-between bg-lavender-100 p-6 transition-transform duration-300 ease-out
+        className={`fixed z-40 flex h-full w-72 flex-col bg-lavender-100 p-6 transition-transform duration-300 ease-out
         lg:static lg:z-auto lg:h-auto lg:min-h-screen lg:translate-x-0
         ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div>
-          <div className="mb-10 flex items-center justify-between">
-            <Logo />
-          </div>
-
-          <nav className="flex flex-col gap-1.5">
-            {NAV_ITEMS.map((item) => {
-              const isActive =
-                item.href === "/dashboard"
-                  ? pathname === "/dashboard"
-                  : pathname.startsWith(item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onClose}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-primary-500 text-white shadow-soft"
-                      : "text-ink-500 hover:bg-white/70 hover:text-ink-900"
-                  }`}
-                >
-                  <Icon active={isActive} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+        {/* Logo + close button row */}
+        <div className="mb-10 flex items-center justify-between">
+          <Logo />
+          {/* Close button — visible only on mobile */}
+          <button
+            aria-label="Close sidebar"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-500 transition-colors hover:bg-white lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        <div className="flex items-center justify-between rounded-2xl bg-white/60 p-4">
-          <div>
-            <p className="text-sm font-semibold text-ink-900">Marcos Kahn</p>
-            <p className="text-xs text-ink-400">Finance team</p>
+        {/* Nav */}
+        <nav className="flex flex-col gap-1.5">
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-primary-500 text-white shadow-soft"
+                    : "text-ink-500 hover:bg-white/70 hover:text-ink-900"
+                }`}
+              >
+                <Icon active={isActive} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/*
+          User card — sits right below the nav.
+          ✅ Removed `lg:mt-auto` so it never gets pushed to the bottom.
+        */}
+        <div className="mt-8 flex items-center justify-between rounded-2xl bg-white/60 p-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink-900">
+              Marcos Kahn
+            </p>
+            <p className="truncate text-xs text-ink-400">Finance team</p>
           </div>
           <Link
             href="/login"
             aria-label="Sign out"
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-500 hover:bg-white"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-ink-500 hover:bg-white"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path
@@ -91,6 +108,8 @@ export default function Sidebar({
     </>
   );
 }
+
+/* ---------- Icons (unchanged) ---------- */
 
 function iconStroke(active?: boolean) {
   return active ? "#FFFFFF" : "#6E6E85";
