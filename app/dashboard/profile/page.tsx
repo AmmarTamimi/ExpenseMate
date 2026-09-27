@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Mail,
   User,
@@ -11,53 +12,191 @@ import {
   TrendingDown,
   ShieldCheck,
 } from "lucide-react";
+
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
-import { getUser } from "../../src/lib/auth/getUser";
+import NotificationsPanel, {
+  NotificationItem,
+} from "../../components/NotificationsPanel";
+
+/* ---------- Types ---------- */
+
+type PopulatedCategory = {
+  _id: string;
+  name: string;
+  type: "income" | "expense";
+};
+
+type TransactionFromAPI = {
+  _id: string;
+  trId: string;
+  type: "income" | "expense";
+  catId: PopulatedCategory | string;
+  amount: number;
+  date: string;
+  note?: string;
+};
+
+/* ---------- Page ---------- */
 
 export default function ProfilePage() {
+  const router = useRouter();
+
+  /* --- Auth state --- */
+  const [authState, setAuthState] = useState<
+    "checking" | "authenticated" | "unauthenticated"
+  >("checking");
+
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("User");
+  const [userEmail, setUserEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (cancelled) return;
+
+        if (!res.ok) {
+          setAuthState("unauthenticated");
+          return;
+        }
+
+        const data = await res.json();
+        const fn = data.user.firstName ?? "";
+        const ln = data.user.lastName ?? "";
+        const fullName = `${fn} ${ln}`.trim() || data.user.email;
+
+        setUserId(data.user.userId);
+        setFirstName(fn);
+        setLastName(ln);
+        setUserName(fullName);
+        setUserEmail(data.user.email);
+        setAuthState("authenticated");
+      } catch {
+        if (!cancelled) setAuthState("unauthenticated");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authState === "unauthenticated") router.replace("/login");
+  }, [authState, router]);
+
+  /* --- UI state --- */
   const [menuOpen, setMenuOpen] = useState(false);
-  const { user, loading } = getUser();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // Derive display fields from the real session
-  const fullName = user
-    ? `${user.firstName} ${user.lastName}`.trim() || "Unnamed user"
-    : "";
-  const initials = user
-    ? (
-        (user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")
-      ).toUpperCase() || "?"
-    : "";
+  /* --- Data state --- */
+  const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loadingTx, setLoadingTx] = useState(true);
 
-  // These are still mock until we wire transactions
-  const totalIncome = 2450.0;
-  const totalExpenses = 1120.5;
+  /* ---------- Fetchers ---------- */
+
+  const fetchTransactions = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setLoadingTx(true);
+      const res = await fetch("/api/transactions", {
+        credentials: "include",
+        headers: { "x-user-id": userId },
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setTransactions(data);
+      }
+    } catch (err) {
+      console.error("Transactions:", err);
+    } finally {
+      setLoadingTx(false);
+    }
+  }, [userId]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/notifications", {
+        credentials: "include",
+        headers: { "x-user-id": userId },
+      });
+      const data = await res.json();
+      if (res.ok) setNotifications(data.notifications ?? []);
+    } catch (err) {
+      console.error("Notifications:", err);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (authState !== "authenticated" || !userId) return;
+    fetchTransactions();
+    fetchNotifications();
+  }, [authState, userId, fetchTransactions, fetchNotifications]);
+
+  /* ---------- Derived summary (real numbers) ---------- */
+  let totalIncome = 0;
+  let totalExpenses = 0;
+  for (const t of transactions) {
+    if (t.type === "income") totalIncome += t.amount;
+    else totalExpenses += t.amount;
+  }
   const balance = totalIncome - totalExpenses;
-  const transactionsCount = 42;
+  const transactionsCount = transactions.length;
 
-  // Show skeleton while loading, or if not authenticated
-  if (loading || !user) {
+  /* ---------- Notifications badge ---------- */
+  const unreadCount = notifications.filter((n) => n.level !== "info").length;
+
+  /* ---------- Sign out ---------- */
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  };
+
+  /* ---------- Display values ---------- */
+  const fullName = `${firstName} ${lastName}`.trim() || userName || "Unnamed user";
+  const initials =
+    ((firstName?.[0] ?? "") + (lastName?.[0] ?? "")).toUpperCase() || "?";
+
+  /* ---------- Loading splash ---------- */
+  if (authState === "checking") {
     return (
-      <div className="flex min-h-screen bg-[#F8F7FC]">
-        <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-          <TopBar onMenu={() => setMenuOpen(true)} />
-          <div className="mx-auto w-full max-w-3xl animate-pulse space-y-6">
-            <div className="h-28 rounded-3xl bg-white" />
-            <div className="h-40 rounded-3xl bg-white" />
-            <div className="h-32 rounded-3xl bg-white" />
-          </div>
-        </main>
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F7FC]">
+        <div className="text-sm text-ink-400">Loading...</div>
       </div>
     );
   }
+  if (authState === "unauthenticated") return null;
 
+  /* ---------- Render ---------- */
   return (
     <div className="flex min-h-screen bg-[#F8F7FC]">
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-        <TopBar onMenu={() => setMenuOpen(true)} />
+        <TopBar
+          onMenu={() => setMenuOpen(true)}
+          userName={userName}
+          userEmail={userEmail}
+          notificationCount={unreadCount}
+          onNotificationsClick={() => setNotificationsOpen(true)}
+          onSignOut={handleSignOut}
+        />
 
         {/* Page header */}
         <div className="mb-6">
@@ -88,7 +227,7 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <p className="mt-1 truncate text-sm text-ink-500">
-                  {user.email}
+                  {userEmail}
                 </p>
               </div>
             </div>
@@ -101,27 +240,32 @@ export default function ProfilePage() {
             </h3>
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <InfoRow icon={User} label="Full name" value={fullName} />
-              <InfoRow icon={Mail} label="Email address" value={user.email} />
+              <InfoRow icon={Mail} label="Email address" value={userEmail} />
               <InfoRow
                 icon={Briefcase}
                 label="Account ID"
-                value={`#${user.userId.slice(-6).toUpperCase()}`}
+                value={`#${userId.slice(-6).toUpperCase()}`}
               />
               <InfoRow icon={Calendar} label="Role" value="Member" />
             </dl>
           </section>
 
-          {/* Summary stats */}
+          {/* Activity summary — real data */}
           <section className="rounded-3xl bg-white p-6 shadow-card sm:p-8">
-            <h3 className="mb-5 text-sm font-semibold text-ink-900">
-              Activity summary
-            </h3>
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-ink-900">
+                Activity summary
+              </h3>
+              {loadingTx && (
+                <span className="text-[11px] text-ink-400">Loading…</span>
+              )}
+            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <MiniStat
                 icon={Wallet}
                 label="Balance"
                 value={`${balance.toFixed(2)}€`}
-                tone="primary"
+                tone={balance >= 0 ? "primary" : "red"}
               />
               <MiniStat
                 icon={TrendingUp}
@@ -145,6 +289,13 @@ export default function ProfilePage() {
           </section>
         </div>
       </main>
+
+      {/* Notifications panel */}
+      <NotificationsPanel
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+      />
     </div>
   );
 }

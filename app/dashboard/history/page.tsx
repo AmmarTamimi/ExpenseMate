@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Filter,
@@ -12,9 +13,13 @@ import {
   FileText,
   Loader2,
 } from "lucide-react";
+
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
 import ExpenseTable, { Expense } from "../../components/ExpenseTable";
+import NotificationsPanel, {
+  NotificationItem,
+} from "../../components/NotificationsPanel";
 
 /* ---------- Types ---------- */
 
@@ -22,17 +27,23 @@ type HistoryItem = Expense & {
   _id: string;
   type: "income" | "expense";
   category: string;
-  // raw fields for CSV export
   rawAmount: number;
   rawDate: string;
 };
 
+type PopulatedCategory = {
+  _id: string;
+  name: string;
+  type: "income" | "expense";
+};
+
 type ApiTransaction = {
   _id: string;
-  amount: number;
-  category: string;
+  trId: string;
   type: "income" | "expense";
-  date: string; // ISO
+  catId: PopulatedCategory | string;
+  amount: number;
+  date: string;
   note?: string;
 };
 
@@ -41,7 +52,7 @@ type FilterType = "all" | "income" | "expense";
 /* ---------- Helpers ---------- */
 
 function formatAmount(n: number) {
-  return `${n.toFixed(2).replace(".", ",")}€`;
+  return `${n.toFixed(2)}€`;
 }
 
 function formatDate(iso: string) {
@@ -52,6 +63,11 @@ function formatDate(iso: string) {
   return `${dd}/${mm}/${yy}`;
 }
 
+function getCategoryName(cat: PopulatedCategory | string): string {
+  if (typeof cat === "string") return "Uncategorized";
+  return cat?.name ?? "Uncategorized";
+}
+
 function toCsv(rows: HistoryItem[]): string {
   const header = ["Date", "Category", "Type", "Amount", "Note"].join(",");
 
@@ -60,8 +76,9 @@ function toCsv(rows: HistoryItem[]): string {
       const date = r.rawDate ? String(r.rawDate).slice(0, 10) : "";
       const category = r.category ?? "";
       const type = r.type ?? "";
-      const amount = typeof r.rawAmount === "number" ? r.rawAmount.toFixed(2) : "";
-      const note = r.company ?? ""; // company === note in your mapping
+      const amount =
+        typeof r.rawAmount === "number" ? r.rawAmount.toFixed(2) : "";
+      const note = r.company ?? "";
 
       return [
         escapeCsv(date),
@@ -78,7 +95,12 @@ function toCsv(rows: HistoryItem[]): string {
 
 function escapeCsv(value: unknown): string {
   const s = value == null ? "" : String(value);
-  if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+  if (
+    s.includes(",") ||
+    s.includes('"') ||
+    s.includes("\n") ||
+    s.includes("\r")
+  ) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
@@ -99,65 +121,135 @@ function triggerDownload(csv: string, filename: string) {
 /* ---------- Page ---------- */
 
 export default function HistoryPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterType>("all");
-  const [rows, setRows] = useState<HistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  /* ---------- Fetch transactions ---------- */
+  /* --- Auth (three-phase guard) --- */
+  const [authState, setAuthState] = useState<
+    "checking" | "authenticated" | "unauthenticated"
+  >("checking");
+
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("User");
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-
     (async () => {
       try {
-        const res = await fetch("/api/transactions", { cache: "no-store" });
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (cancelled) return;
 
-        if (res.status === 401) {
-          window.location.href = "/login";
+        if (!res.ok) {
+          setAuthState("unauthenticated");
           return;
         }
 
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to load transactions");
-        }
+        const data = await res.json();
+        const fullName =
+          data.user.firstName && data.user.firstName.trim().length > 0
+            ? `${data.user.firstName} ${data.user.lastName ?? ""}`.trim()
+            : data.user.email;
 
-        const data: ApiTransaction[] = await res.json();
-        if (!Array.isArray(data)) {
-          throw new Error("Unexpected response from server");
-        }
-
-        // Map API response → table row shape
-        const mapped: HistoryItem[] = data.map((t) => ({
-          _id: t._id,
-          company: t.note || t.category || "—", // display merchant as the note
-          category: t.category,
-          budget: "—", // budgets not wired yet
-          date: formatDate(t.date),
-          amount: formatAmount(t.amount),
-          status: "Approved", // placeholder; wire real status if needed
-          icon: t.type === "income" ? "💰" : "💸",
-          type: t.type,
-          rawAmount: t.amount,
-          rawDate: t.date,
-        }));
-
-        if (!cancelled) setRows(mapped);
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) setError((err as Error).message);
-      } finally {
-        if (!cancelled) setLoading(false);
+        setUserId(data.user.userId);
+        setUserName(fullName);
+        setUserEmail(data.user.email);
+        setAuthState("authenticated");
+      } catch {
+        if (!cancelled) setAuthState("unauthenticated");
       }
     })();
-
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (authState === "unauthenticated") router.replace("/login");
+  }, [authState, router]);
+
+  /* --- UI state --- */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  /* --- Data state --- */
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [rows, setRows] = useState<HistoryItem[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  /* ---------- Fetchers ---------- */
+
+  const fetchTransactions = useCallback(async () => {
+    if (!userId) return;
+    try {
+      setError(null);
+      const res = await fetch("/api/transactions", {
+        credentials: "include",
+        headers: { "x-user-id": userId },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to load transactions");
+      }
+
+      const data: ApiTransaction[] = await res.json();
+      if (!Array.isArray(data)) {
+        throw new Error("Unexpected response from server");
+      }
+
+      const mapped: HistoryItem[] = data.map((t) => {
+        const catName = getCategoryName(t.catId);
+        return {
+          _id: t._id,
+          company: t.note || catName || "—",
+          category: catName,
+          budget: "—",
+          date: formatDate(t.date),
+          amount: formatAmount(t.amount),
+          status: t.type === "income" ? "Approved" : "Pending",
+          icon: t.type === "income" ? "💰" : "💸",
+          type: t.type,
+          rawAmount: t.amount,
+          rawDate: t.date,
+        };
+      });
+
+      setRows(mapped);
+    } catch (err) {
+      console.error(err);
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/notifications", {
+        credentials: "include",
+        headers: { "x-user-id": userId },
+      });
+      const data = await res.json();
+      if (res.ok) setNotifications(data.notifications ?? []);
+    } catch (err) {
+      console.error("Notifications:", err);
+    }
+  }, [userId]);
+
+  /* ---------- Initial load ---------- */
+  useEffect(() => {
+    if (authState !== "authenticated" || !userId) return;
+    (async () => {
+      setLoading(true);
+      await Promise.all([fetchTransactions(), fetchNotifications()]);
+      setLoading(false);
+    })();
+  }, [authState, userId, fetchTransactions, fetchNotifications]);
 
   /* ---------- Filtering + totals ---------- */
 
@@ -186,6 +278,24 @@ export default function HistoryPage() {
     return { income, expense, net: income - expense };
   }, [filtered]);
 
+  /* ---------- Notification badge ---------- */
+  const unreadCount = notifications.filter((n) => n.level !== "info").length;
+
+  /* ---------- Sign out ---------- */
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  };
+
   /* ---------- Handlers ---------- */
 
   const handleExport = () => {
@@ -199,6 +309,16 @@ export default function HistoryPage() {
     window.print();
   };
 
+  /* ---------- Loading splash ---------- */
+  if (authState === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F7FC]">
+        <div className="text-sm text-ink-400">Loading...</div>
+      </div>
+    );
+  }
+  if (authState === "unauthenticated") return null;
+
   /* ---------- Render ---------- */
 
   return (
@@ -206,7 +326,14 @@ export default function HistoryPage() {
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-        <TopBar onMenu={() => setMenuOpen(true)} />
+        <TopBar
+          onMenu={() => setMenuOpen(true)}
+          userName={userName}
+          userEmail={userEmail}
+          notificationCount={unreadCount}
+          onNotificationsClick={() => setNotificationsOpen(true)}
+          onSignOut={handleSignOut}
+        />
 
         {/* Page header */}
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -270,7 +397,7 @@ export default function HistoryPage() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by merchant, category, or budget…"
+                placeholder="Search by note, category…"
                 className="w-full bg-transparent text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none"
               />
             </div>
@@ -318,6 +445,13 @@ export default function HistoryPage() {
           )}
         </section>
       </main>
+
+      {/* Notifications panel */}
+      <NotificationsPanel
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+      />
     </div>
   );
 }

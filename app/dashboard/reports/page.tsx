@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BarChart,
   Bar,
@@ -25,105 +26,30 @@ import {
   BarChart3,
   PieChart as PieIcon,
 } from "lucide-react";
+
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
+import NotificationsPanel, {
+  NotificationItem,
+} from "../../components/NotificationsPanel";
 
-/* ---------- Sample data (replace with real data later) ---------- */
+/* ---------- Types ---------- */
 
-type ReportItem = {
-  id: string;
-  date: string; // YYYY-MM-DD
-  category: string;
-  amount: number;
+type PopulatedCategory = {
+  _id: string;
+  name: string;
   type: "income" | "expense";
 };
 
-const SAMPLE: ReportItem[] = [
-  {
-    id: "1",
-    date: "2024-02-01",
-    category: "Transport",
-    amount: 126.3,
-    type: "expense",
-  },
-  {
-    id: "2",
-    date: "2024-02-01",
-    category: "Travel",
-    amount: 210.0,
-    type: "expense",
-  },
-  {
-    id: "3",
-    date: "2024-02-03",
-    category: "Dining",
-    amount: 32.54,
-    type: "expense",
-  },
-  {
-    id: "4",
-    date: "2024-02-03",
-    category: "Dining",
-    amount: 14.2,
-    type: "expense",
-  },
-  {
-    id: "5",
-    date: "2024-02-03",
-    category: "Shopping",
-    amount: 22.4,
-    type: "expense",
-  },
-  {
-    id: "6",
-    date: "2024-02-04",
-    category: "Transport",
-    amount: 5.1,
-    type: "expense",
-  },
-  {
-    id: "7",
-    date: "2024-02-04",
-    category: "Office",
-    amount: 6.12,
-    type: "expense",
-  },
-  {
-    id: "8",
-    date: "2024-02-04",
-    category: "Dining",
-    amount: 42.6,
-    type: "expense",
-  },
-  {
-    id: "9",
-    date: "2024-02-04",
-    category: "Groceries",
-    amount: 15.0,
-    type: "expense",
-  },
-  {
-    id: "10",
-    date: "2024-02-05",
-    category: "Salary",
-    amount: 2450.0,
-    type: "income",
-  },
-  {
-    id: "11",
-    date: "2024-02-15",
-    category: "Freelance",
-    amount: 450.0,
-    type: "income",
-  },
-  {
-    id: "12",
-    date: "2024-02-18",
-    category: "Groceries",
-    amount: 78.9,
-    type: "expense",
-  },
-];
+type TransactionFromAPI = {
+  _id: string;
+  trId: string;
+  type: "income" | "expense";
+  catId: PopulatedCategory;
+  amount: number;
+  date: string;
+  note?: string;
+};
 
 /* ---------- Chart colors ---------- */
 
@@ -140,8 +66,9 @@ const EXPENSE_COLOR = "#EF4444";
 
 /* ---------- Helpers ---------- */
 
-function monthKey(date: string) {
-  return date.slice(0, 7); // "2024-02"
+function monthKey(date: string | Date) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function formatMonthLabel(ym: string) {
@@ -150,100 +77,168 @@ function formatMonthLabel(ym: string) {
   return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function toCSV(rows: ReportItem[]) {
-  const header = "Date,Category,Type,Amount";
+function toCSV(rows: TransactionFromAPI[]) {
+  const header = "Date,Category,Type,Amount,Note";
   const body = rows
-    .map((r) => `${r.date},${r.category},${r.type},${r.amount.toFixed(2)}`)
+    .map((r) => {
+      const date = new Date(r.date).toISOString().slice(0, 10);
+      const cat = (r.catId?.name ?? "Uncategorized").replace(/"/g, '""');
+      const note = (r.note ?? "").replace(/"/g, '""');
+      return `"${date}","${cat}","${r.type}","${r.amount.toFixed(2)}","${note}"`;
+    })
     .join("\n");
   return `${header}\n${body}`;
-}
-
-function parseCSV(text: string): { rows: ReportItem[]; errors: string[] } {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-  const errors: string[] = [];
-  const rows: ReportItem[] = [];
-
-  if (lines.length === 0) {
-    return { rows, errors: ["File is empty"] };
-  }
-
-  // Skip header if present
-  const start = lines[0].toLowerCase().includes("date") ? 1 : 0;
-
-  for (let i = start; i < lines.length; i++) {
-    const line = lines[i];
-    const parts = line.split(",").map((p) => p.trim());
-    if (parts.length < 4) {
-      errors.push(`Row ${i + 1}: expected 4 columns, got ${parts.length}`);
-      continue;
-    }
-    const [date, category, type, amountStr] = parts;
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      errors.push(`Row ${i + 1}: invalid date "${date}" (use YYYY-MM-DD)`);
-      continue;
-    }
-    if (type !== "income" && type !== "expense") {
-      errors.push(`Row ${i + 1}: type must be "income" or "expense"`);
-      continue;
-    }
-    const amount = Number(amountStr);
-    if (!Number.isFinite(amount) || amount < 0) {
-      errors.push(`Row ${i + 1}: invalid amount "${amountStr}"`);
-      continue;
-    }
-
-    rows.push({
-      id: `imported-${Date.now()}-${i}`,
-      date,
-      category,
-      type: type as "income" | "expense",
-      amount,
-    });
-  }
-
-  return { rows, errors };
 }
 
 /* ---------- Page ---------- */
 
 export default function ReportsPage() {
+  const router = useRouter();
+
+  /* --- Auth (same three-phase guard as the dashboard) --- */
+  const [authState, setAuthState] = useState<
+    "checking" | "authenticated" | "unauthenticated"
+  >("checking");
+
+  const [userId, setUserId] = useState("");
+  const [userName, setUserName] = useState("User");
+  const [userEmail, setUserEmail] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (cancelled) return;
+
+        if (!res.ok) {
+          setAuthState("unauthenticated");
+          return;
+        }
+
+        const data = await res.json();
+        const fullName =
+          data.user.firstName && data.user.firstName.trim().length > 0
+            ? `${data.user.firstName} ${data.user.lastName ?? ""}`.trim()
+            : data.user.email;
+
+        setUserId(data.user.userId);
+        setUserName(fullName);
+        setUserEmail(data.user.email);
+        setAuthState("authenticated");
+      } catch {
+        if (!cancelled) setAuthState("unauthenticated");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authState === "unauthenticated") router.replace("/login");
+  }, [authState, router]);
+
+  /* --- UI state --- */
   const [menuOpen, setMenuOpen] = useState(false);
-  const [data, setData] = useState<ReportItem[]>(SAMPLE);
-  const [month, setMonth] = useState<string>("2024-02");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  /* --- Data state --- */
+  const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+
   const [toast, setToast] = useState<{
     kind: "ok" | "err";
     msg: string;
   } | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const availableMonths = useMemo(() => {
-    const set = new Set(data.map((d) => monthKey(d.date)));
-    return Array.from(set).sort().reverse();
-  }, [data]);
+  /* ---------- Fetchers ---------- */
 
+  const fetchTransactions = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/transactions", {
+        credentials: "include",
+        headers: { "x-user-id": userId },
+      });
+      const data = await res.json();
+      if (res.ok) setTransactions(data);
+      else console.error("Transactions:", data.error);
+    } catch (err) {
+      console.error("Transactions:", err);
+    }
+  }, [userId]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch("/api/notifications", {
+        credentials: "include",
+        headers: { "x-user-id": userId },
+      });
+      const data = await res.json();
+      if (res.ok) setNotifications(data.notifications ?? []);
+    } catch (err) {
+      console.error("Notifications:", err);
+    }
+  }, [userId]);
+
+  /* ---------- Initial load ---------- */
+  useEffect(() => {
+    if (authState !== "authenticated" || !userId) return;
+    (async () => {
+      setLoading(true);
+      await Promise.all([fetchTransactions(), fetchNotifications()]);
+      setLoading(false);
+    })();
+  }, [authState, userId, fetchTransactions, fetchNotifications]);
+
+  /* ---------- Derived: all months present in data ---------- */
+  const availableMonths = useMemo(() => {
+    const set = new Set(transactions.map((t) => monthKey(t.date)));
+    return Array.from(set).sort().reverse();
+  }, [transactions]);
+
+  /* Auto-select the newest month whenever data loads */
+  useEffect(() => {
+    if (!selectedMonth && availableMonths.length > 0) {
+      setSelectedMonth(availableMonths[0]);
+    }
+  }, [availableMonths, selectedMonth]);
+
+  /* ---------- Month-filtered data ---------- */
   const monthData = useMemo(
-    () => data.filter((d) => monthKey(d.date) === month),
-    [data, month],
+    () =>
+      selectedMonth
+        ? transactions.filter((t) => monthKey(t.date) === selectedMonth)
+        : [],
+    [transactions, selectedMonth]
   );
 
+  /* ---------- Totals ---------- */
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
-    for (const item of monthData) {
-      if (item.type === "income") income += item.amount;
-      else expense += item.amount;
+    for (const t of monthData) {
+      if (t.type === "income") income += t.amount;
+      else expense += t.amount;
     }
     return { income, expense, net: income - expense };
   }, [monthData]);
 
+  /* ---------- Category breakdown ---------- */
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, { expense: number; income: number }>();
-    for (const item of monthData) {
-      const cur = map.get(item.category) ?? { expense: 0, income: 0 };
-      if (item.type === "expense") cur.expense += item.amount;
-      else cur.income += item.amount;
-      map.set(item.category, cur);
+    for (const t of monthData) {
+      const cat = t.catId?.name ?? "Uncategorized";
+      const cur = map.get(cat) ?? { expense: 0, income: 0 };
+      if (t.type === "expense") cur.expense += t.amount;
+      else cur.income += t.amount;
+      map.set(cat, cur);
     }
     return Array.from(map.entries()).map(([category, v]) => ({
       category,
@@ -252,21 +247,40 @@ export default function ReportsPage() {
     }));
   }, [monthData]);
 
+  /* ---------- Pie data ---------- */
   const expenseByCategory = useMemo(
     () =>
       categoryBreakdown
         .filter((c) => c.expense > 0)
         .map((c) => ({ name: c.category, value: c.expense })),
-    [categoryBreakdown],
+    [categoryBreakdown]
   );
 
-  /* ---------- Handlers ---------- */
+  /* ---------- Notification badge ---------- */
+  const unreadCount = notifications.filter((n) => n.level !== "info").length;
 
+  /* ---------- Sign out ---------- */
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  };
+
+  /* ---------- Toast helper ---------- */
   const flash = (kind: "ok" | "err", msg: string) => {
     setToast({ kind, msg });
     setTimeout(() => setToast(null), 3000);
   };
 
+  /* ---------- Export ---------- */
   const handleExport = () => {
     if (monthData.length === 0) {
       flash("err", "No transactions to export for this month.");
@@ -277,54 +291,51 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `expensemate-${month}.csv`;
+    a.download = `expensemate-${selectedMonth}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    flash(
-      "ok",
-      `Exported ${monthData.length} rows for ${formatMonthLabel(month)}.`,
-    );
+    flash("ok", `Exported ${monthData.length} rows for ${formatMonthLabel(selectedMonth)}.`);
   };
 
+  /* ---------- Import (kept for reference; server-side import comes later) ---------- */
   const handleImportClick = () => fileInputRef.current?.click();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    const { rows, errors } = parseCSV(text);
-
-    if (rows.length === 0) {
-      flash("err", errors[0] ?? "No valid rows found.");
-      e.target.value = "";
-      return;
-    }
-
-    // Merge into existing data (avoid duplicate IDs by regenerating)
-    setData((prev) => [...prev, ...rows]);
-
-    if (errors.length > 0) {
-      flash("err", `Imported ${rows.length} rows · ${errors.length} skipped.`);
-    } else {
-      flash("ok", `Imported ${rows.length} transactions successfully.`);
-    }
-
-    // Jump to the month of the first imported row
-    setMonth(monthKey(rows[0].date));
-
+    flash(
+      "err",
+      "CSV import will be wired to POST /api/transactions/import in a later phase."
+    );
     e.target.value = "";
   };
 
-  /* ---------- Render ---------- */
+  /* ---------- Loading splash ---------- */
+  if (authState === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F7FC]">
+        <div className="text-sm text-ink-400">Loading...</div>
+      </div>
+    );
+  }
+  if (authState === "unauthenticated") return null;
 
+  /* ---------- Render ---------- */
   return (
     <div className="flex min-h-screen bg-[#F8F7FC]">
       <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
-        <TopBar onMenu={() => setMenuOpen(true)} />
+        <TopBar
+          onMenu={() => setMenuOpen(true)}
+          userName={userName}
+          userEmail={userEmail}
+          notificationCount={unreadCount}
+          onNotificationsClick={() => setNotificationsOpen(true)}
+          onSignOut={handleSignOut}
+        />
 
         {/* Header */}
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -338,23 +349,23 @@ export default function ReportsPage() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            {/* Month selector */}
-            <div className="flex items-center gap-2 rounded-2xl border border-lavender-200 bg-white px-3 py-2">
-              <Calendar className="h-4 w-4 text-ink-400" />
-              <select
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="bg-transparent text-sm font-medium text-ink-900 focus:outline-none"
-              >
-                {(availableMonths.length ? availableMonths : [month]).map(
-                  (m) => (
+            {/* Month selector — populated from real data */}
+            {availableMonths.length > 0 && (
+              <div className="flex items-center gap-2 rounded-2xl border border-lavender-200 bg-white px-3 py-2">
+                <Calendar className="h-4 w-4 text-ink-400" />
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-transparent text-sm font-medium text-ink-900 focus:outline-none"
+                >
+                  {availableMonths.map((m) => (
                     <option key={m} value={m}>
                       {formatMonthLabel(m)}
                     </option>
-                  ),
-                )}
-              </select>
-            </div>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handleImportClick}
@@ -421,22 +432,38 @@ export default function ReportsPage() {
           />
         </div>
 
-        {/* Empty state */}
-        {monthData.length === 0 ? (
+        {/* Body */}
+        {loading ? (
+          <section className="rounded-3xl bg-white p-10 text-center shadow-card">
+            <p className="text-sm text-ink-400">Loading reports...</p>
+          </section>
+        ) : transactions.length === 0 ? (
           <section className="rounded-3xl bg-white p-10 text-center shadow-card">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-lavender-50 text-ink-400">
               <BarChart3 className="h-5 w-5" />
             </div>
             <h2 className="mt-3 text-sm font-semibold text-ink-900">
-              No data for {formatMonthLabel(month)}
+              No transactions yet
             </h2>
             <p className="mx-auto mt-1 max-w-xs text-xs text-ink-500">
-              Import a CSV to see charts and totals for this month.
+              Add transactions from the dashboard to see reports here.
+            </p>
+          </section>
+        ) : monthData.length === 0 ? (
+          <section className="rounded-3xl bg-white p-10 text-center shadow-card">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-lavender-50 text-ink-400">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <h2 className="mt-3 text-sm font-semibold text-ink-900">
+              No data for {formatMonthLabel(selectedMonth)}
+            </h2>
+            <p className="mx-auto mt-1 max-w-xs text-xs text-ink-500">
+              Pick another month from the dropdown above.
             </p>
           </section>
         ) : (
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-            {/* Bar chart: income vs expense by category */}
+            {/* Bar chart */}
             <section className="rounded-3xl bg-white p-5 shadow-card sm:p-6">
               <div className="mb-5 flex items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50 text-primary-500">
@@ -447,7 +474,7 @@ export default function ReportsPage() {
                     Income vs Expenses
                   </h2>
                   <p className="text-[11px] text-ink-400">
-                    By category · {formatMonthLabel(month)}
+                    By category · {formatMonthLabel(selectedMonth)}
                   </p>
                 </div>
               </div>
@@ -497,7 +524,7 @@ export default function ReportsPage() {
               </div>
             </section>
 
-            {/* Pie chart: expenses by category */}
+            {/* Pie chart */}
             <section className="rounded-3xl bg-white p-5 shadow-card sm:p-6">
               <div className="mb-5 flex items-center gap-2">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gold-100 text-gold-600">
@@ -534,15 +561,13 @@ export default function ReportsPage() {
                       ))}
                     </Pie>
                     <Tooltip
-  formatter={(value) =>
-    `${Number(value ?? 0).toFixed(2)}€`
-  }
-  contentStyle={{
-    borderRadius: 12,
-    border: "1px solid #E6E4F1",
-    fontSize: 12,
-  }}
-/>
+                      formatter={(value) => `${Number(value ?? 0).toFixed(2)}€`}
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid #E6E4F1",
+                        fontSize: 12,
+                      }}
+                    />
                     <Legend
                       iconType="circle"
                       wrapperStyle={{ fontSize: 12, color: "#6E6E85" }}
@@ -556,15 +581,22 @@ export default function ReportsPage() {
 
         {/* Footer note */}
         <p className="mt-6 text-center text-[11px] text-ink-400">
-          CSV format: <code>Date,Category,Type,Amount</code> · Date as{" "}
+          CSV export format: <code>Date,Category,Type,Amount,Note</code> · Date as{" "}
           <code>YYYY-MM-DD</code>
         </p>
       </main>
+
+      {/* Notifications panel */}
+      <NotificationsPanel
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={notifications}
+      />
     </div>
   );
 }
 
-/* ---------- Sub-components ---------- */
+/* ---------- Summary Card ---------- */
 
 function SummaryCard({
   icon: Icon,
