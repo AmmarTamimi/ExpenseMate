@@ -28,6 +28,7 @@ export default function TransactionModal({
   onSuccess,
   defaultType = "expense",
 }: TransactionModalProps) {
+  const { user } = getUser();
   const [type, setType] = useState<TransactionType>(defaultType);
   const [catId, setCatId] = useState("");
   const [amount, setAmount] = useState("");
@@ -48,7 +49,7 @@ export default function TransactionModal({
     (async () => {
       try {
         setLoadingCategories(true);
-        const { user } = getUser();
+        
         const res = await fetch("/api/categories", {
           headers: { "x-user-id": user?.userId || "" },
         });
@@ -107,7 +108,7 @@ export default function TransactionModal({
     }
 
     setLoading(true);
-    const { user } = getUser();
+    
     try {
       const res = await fetch("/api/transactions", {
         method: "POST",

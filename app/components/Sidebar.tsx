@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import Logo from "./Logo";
+import { getUser } from "@/lib/auth/getUser";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: HomeIcon },
@@ -20,6 +21,7 @@ export default function Sidebar({
   open: boolean;
   onClose: () => void;
 }) {
+  const {user} = getUser();
   const pathname = usePathname();
 
   return (
@@ -84,9 +86,9 @@ export default function Sidebar({
         <div className="mt-8 flex items-center justify-between rounded-2xl bg-white/60 p-4">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-ink-900">
-              Marcos Kahn
+              {user?.firstName}
             </p>
-            <p className="truncate text-xs text-ink-400">Finance team</p>
+            {/* <p className="truncate text-xs text-ink-400">Finance team</p> */}
           </div>
           <Link
             href="/login"

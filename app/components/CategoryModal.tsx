@@ -17,6 +17,7 @@ export default function CategoryModal({
   onClose,
   onSuccess,
 }: CategoryModalProps) {
+  const {user} = getUser();
   const [name, setName] = useState("");
   const [type, setType] = useState<CategoryType>("expense");
   const [error, setError] = useState("");
@@ -49,7 +50,7 @@ export default function CategoryModal({
     }
 
     setLoading(true);
-    const {user} = getUser();
+    
     try {
       const res = await fetch("/api/categories", {
         method: "POST",
