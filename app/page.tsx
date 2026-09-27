@@ -1,28 +1,22 @@
 import Link from "next/link";
+import { Camera, Compass, CheckCircle2, Receipt, FileText, TrendingUp } from "lucide-react";
 import Logo from "@/components/Logo";
-import DonutRing from "@/components/DonutRing";
-import BudgetCard, { Budget } from "@/components/BudgetCard";
-
-const previewBudgets: Budget[] = [
-  { title: "February Expenses", total: 300, spent: 87.5, date: "01/02/19" },
-  { title: "Berlin Congress", total: 850, spent: 297.5, date: "01/02/19" },
-];
 
 const FEATURES = [
   {
     title: "Snap a receipt",
     body: "Forward an email or drop a photo — ExpenseMate reads the amount, date and merchant for you.",
-    icon: "📸",
+    icon: Camera,
   },
   {
     title: "Track every budget",
     body: "See what's requested, spent and remaining for each trip or project at a glance.",
-    icon: "🧭",
+    icon: Compass,
   },
   {
     title: "Get approvals faster",
     body: "Managers approve or flag expenses from one queue, so nothing sits pending for long.",
-    icon: "✅",
+    icon: CheckCircle2,
   },
 ];
 
@@ -85,28 +79,69 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Preview card */}
-        <div className="relative">
-          <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-gold-100" />
-          <div className="relative rounded-3xl bg-white p-6 shadow-pop sm:p-8">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-ink-400">Total balance</p>
-                <p className="text-2xl font-bold text-ink-900">550,20€</p>
+        {/* Animated Receipt Hero */}
+        <div className="relative flex items-center justify-center">
+          {/* Glow blobs */}
+          <div className="absolute -right-10 -top-10 h-56 w-56 rounded-full bg-gold-100 blur-2xl" />
+          <div className="absolute -bottom-10 -left-10 h-56 w-56 rounded-full bg-primary-100 blur-2xl" />
+
+          {/* Main floating receipt card */}
+          <div className="relative animate-[float_6s_ease-in-out_infinite]">
+            <div className="w-72 rounded-3xl bg-white p-6 shadow-pop">
+              {/* Receipt header */}
+              <div className="flex items-center justify-between border-b border-dashed border-lavender-200 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-50">
+                    <Receipt className="h-5 w-5 text-primary-500" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-ink-900">Receipt #2481</p>
+                    <p className="text-[10px] text-ink-400">Today · 10:24 AM</p>
+                  </div>
+                </div>
+                <FileText className="h-4 w-4 text-ink-300" />
               </div>
-              <DonutRing
-                size={72}
-                strokeWidth={10}
-                segments={[
-                  { value: 467.86, color: "#3D4CEA" },
-                  { value: 82.34, color: "#F0A825" },
-                ]}
-              />
+
+              {/* Line items */}
+              <div className="mt-4 space-y-3 text-xs">
+                <div className="flex justify-between text-ink-500">
+                  <span>Coffee</span>
+                  <span className="font-medium text-ink-900">4.50€</span>
+                </div>
+                <div className="flex justify-between text-ink-500">
+                  <span>Sandwich</span>
+                  <span className="font-medium text-ink-900">8.20€</span>
+                </div>
+                <div className="flex justify-between text-ink-500">
+                  <span>Taxi to office</span>
+                  <span className="font-medium text-ink-900">12.00€</span>
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="mt-4 flex items-center justify-between border-t border-dashed border-lavender-200 pt-4">
+                <span className="text-sm font-semibold text-ink-700">Total</span>
+                <span className="text-base font-bold text-primary-500">24.70€</span>
+              </div>
+
+              {/* Status pill */}
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-lavender-50 px-3 py-2">
+                <TrendingUp className="h-4 w-4 text-primary-500" />
+                <span className="text-[10px] font-medium text-ink-600">
+                  Added to <span className="text-primary-500">February Expenses</span>
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              {previewBudgets.map((b) => (
-                <BudgetCard key={b.title} budget={b} />
-              ))}
+
+            {/* Floating side badges */}
+            <div className="absolute -left-8 top-16 animate-[float_5s_ease-in-out_infinite_0.5s] rounded-2xl bg-white px-3 py-2 shadow-card">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-green-500" />
+                <span className="text-[10px] font-semibold text-ink-700">Approved</span>
+              </div>
+            </div>
+            <div className="absolute -right-6 bottom-10 animate-[float_7s_ease-in-out_infinite_1s] rounded-2xl bg-white px-3 py-2 shadow-card">
+              <span className="text-[10px] font-semibold text-primary-500">+12.4% saved</span>
             </div>
           </div>
         </div>
@@ -122,20 +157,23 @@ export default function LandingPage() {
           of the month.
         </p>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="rounded-3xl bg-white p-6 shadow-card"
-            >
-              <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-lavender-50 text-xl">
-                {f.icon}
-              </span>
-              <h3 className="mb-2 text-base font-semibold text-ink-900">
-                {f.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-ink-500">{f.body}</p>
-            </div>
-          ))}
+          {FEATURES.map((f) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={f.title}
+                className="rounded-3xl bg-white p-6 shadow-card transition-transform hover:-translate-y-1"
+              >
+                <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-50 text-primary-500">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <h3 className="mb-2 text-base font-semibold text-ink-900">
+                  {f.title}
+                </h3>
+                <p className="text-sm leading-relaxed text-ink-500">{f.body}</p>
+              </div>
+            );
+          })}
         </div>
       </section>
 
