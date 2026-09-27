@@ -13,26 +13,44 @@ import {
 } from "lucide-react";
 import Sidebar from "../../components/Sidebar";
 import TopBar from "../../components/TopBar";
-
-
-/* ---------- Sample data (replace with real user later) ---------- */
-
-const user = {
-  name: "Marcos Kahn",
-  email: "marcos@company.com",
-  role: "Finance team",
-  joined: "Jan 2024",
-  initials: "MK",
-  verified: true,
-};
+import { getUser } from "../../src/lib/auth/getUser";
 
 export default function ProfilePage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user, loading } = getUser();
 
+  // Derive display fields from the real session
+  const fullName = user
+    ? `${user.firstName} ${user.lastName}`.trim() || "Unnamed user"
+    : "";
+  const initials = user
+    ? (
+        (user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")
+      ).toUpperCase() || "?"
+    : "";
+
+  // These are still mock until we wire transactions
   const totalIncome = 2450.0;
   const totalExpenses = 1120.5;
   const balance = totalIncome - totalExpenses;
   const transactionsCount = 42;
+
+  // Show skeleton while loading, or if not authenticated
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen bg-[#F8F7FC]">
+        <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+        <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+          <TopBar onMenu={() => setMenuOpen(true)} />
+          <div className="mx-auto w-full max-w-3xl animate-pulse space-y-6">
+            <div className="h-28 rounded-3xl bg-white" />
+            <div className="h-40 rounded-3xl bg-white" />
+            <div className="h-32 rounded-3xl bg-white" />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[#F8F7FC]">
@@ -55,23 +73,19 @@ export default function ProfilePage() {
           {/* Identity card */}
           <section className="rounded-3xl bg-white p-6 shadow-card sm:p-8">
             <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-              {/* Avatar */}
               <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl bg-primary-500 text-2xl font-bold text-white shadow-soft">
-                {user.initials}
+                {initials}
               </div>
 
-              {/* Name + email */}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="truncate text-xl font-bold text-ink-900">
-                    {user.name}
+                    {fullName}
                   </h2>
-                  {user.verified && (
-                    <span className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600">
-                      <ShieldCheck className="h-3 w-3" />
-                      Verified
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-600">
+                    <ShieldCheck className="h-3 w-3" />
+                    Verified
+                  </span>
                 </div>
                 <p className="mt-1 truncate text-sm text-ink-500">
                   {user.email}
@@ -86,26 +100,14 @@ export default function ProfilePage() {
               Account details
             </h3>
             <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <InfoRow
-                icon={User}
-                label="Full name"
-                value={user.name}
-              />
-              <InfoRow
-                icon={Mail}
-                label="Email address"
-                value={user.email}
-              />
+              <InfoRow icon={User} label="Full name" value={fullName} />
+              <InfoRow icon={Mail} label="Email address" value={user.email} />
               <InfoRow
                 icon={Briefcase}
-                label="Role"
-                value={user.role}
+                label="Account ID"
+                value={`#${user.userId.slice(-6).toUpperCase()}`}
               />
-              <InfoRow
-                icon={Calendar}
-                label="Member since"
-                value={user.joined}
-              />
+              <InfoRow icon={Calendar} label="Role" value="Member" />
             </dl>
           </section>
 
