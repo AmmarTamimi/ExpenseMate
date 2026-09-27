@@ -385,7 +385,6 @@
 // import ExpenseTable, { Expense } from "../components/ExpenseTable";
 // import Sidebar from "../components/Sidebar";
 // import CategoryModal from "../components/CategoryModal";
-// import { DEV_USER_ID } from "@/lib/devUser";
 
 // /* ---------- Types ---------- */
 
@@ -845,6 +844,7 @@ import Sidebar from "../components/Sidebar";
 import CategoryModal from "../components/CategoryModal";
 import TransactionModal from "../components/TransactionModal";
 import { getSession } from "@/lib/auth/session";
+import { getUser } from "@/lib/auth/getUser";
 // import { DEV_USER_ID } from "@/lib/devUser";
 
 /* ---------- Types ---------- */
@@ -891,12 +891,12 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const user = await getSession();
+  const user = getUser();
   /* ----- Load categories ----- */
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch("/api/categories", {
-        headers: { "x-user-id": user?.userId || ""},
+        headers: { "x-user-id": user?.user?.userId || "" },
       });
       const data = await res.json();
       if (res.ok) setCategories(data);
@@ -910,7 +910,7 @@ export default function DashboardPage() {
   const fetchTransactions = useCallback(async () => {
     try {
       const res = await fetch("/api/transactions", {
-        headers: { "x-user-id": DEV_USER_ID },
+        headers: { "x-user-id": user?.user?.userId || "" },
       });
       const data = await res.json();
       if (res.ok) setTransactions(data);

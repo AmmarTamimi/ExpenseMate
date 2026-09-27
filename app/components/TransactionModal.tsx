@@ -1,5 +1,6 @@
 "use client";
 
+import { getUser } from "@/lib/auth/getUser";
 import { getSession } from "@/lib/auth/session";
 import { useEffect, useState } from "react";
 // import { DEV_USER_ID } from "@/lib/devUser";
@@ -47,7 +48,7 @@ export default function TransactionModal({
     (async () => {
       try {
         setLoadingCategories(true);
-        const user = await getSession();
+        const { user } = getUser();
         const res = await fetch("/api/categories", {
           headers: { "x-user-id": user?.userId || "" },
         });
@@ -106,7 +107,7 @@ export default function TransactionModal({
     }
 
     setLoading(true);
-    const user = await getSession();
+    const { user } = getUser();
     try {
       const res = await fetch("/api/transactions", {
         method: "POST",

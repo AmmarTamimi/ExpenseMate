@@ -1,5 +1,6 @@
 "use client";
 
+import { getUser } from "@/lib/auth/getUser";
 import { getSession } from "@/lib/auth/session";
 import { useState } from "react";
 
@@ -48,7 +49,7 @@ export default function CategoryModal({
     }
 
     setLoading(true);
-    const user = await getSession();
+    const {user} = getUser();
     try {
       const res = await fetch("/api/categories", {
         method: "POST",
