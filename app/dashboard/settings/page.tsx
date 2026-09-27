@@ -11,8 +11,8 @@ import {
   EyeOff,
   CheckCircle2,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import Sidebar from "../../components/Sidebar";
+import TopBar from "../../components/TopBar";
 
 export default function SettingsPage() {
   const [menuOpen, setMenuOpen] = useState(false);

@@ -16,9 +16,10 @@ import {
   AlertTriangle,
   CheckCircle2,
 } from "lucide-react";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
-import ExpenseTable, { Expense } from "@/components/ExpenseTable";
+
+import TopBar from "../components/TopBar";
+import ExpenseTable, { Expense } from "../components/ExpenseTable";
+import Sidebar from "../components/Sidebar";
 
 /* ---------- Sample data (replace with real data later) ---------- */
 

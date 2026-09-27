@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Camera, Compass, CheckCircle2, Receipt, FileText, TrendingUp } from "lucide-react";
-import Logo from "@/components/Logo";
+import Logo from "./components/Logo";
+
 
 const FEATURES = [
   {
