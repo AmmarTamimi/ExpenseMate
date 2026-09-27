@@ -39,6 +39,15 @@ const config: Config = {
           200: "#F0D2D3",
         },
       },
+      keyframes: {
+      float: {
+        "0%, 100%": { transform: "translateY(0px)" },
+        "50%": { transform: "translateY(-12px)" },
+      },
+    },
+    animation: {
+      float: "float 6s ease-in-out infinite",
+    },
       fontFamily: {
         sans: ["var(--font-jakarta)", "ui-sans-serif", "system-ui", "sans-serif"],
       },

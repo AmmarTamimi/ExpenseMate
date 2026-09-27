@@ -1,55 +1,56 @@
 import Link from "next/link";
-import AuthLayout from "@/components/AuthLayout";
+import Logo from "@/components/Logo";
 
 export default function SignupPage() {
   return (
-    <AuthLayout
-      title="Create your account"
-      subtitle="Start tracking expenses and budgets in minutes."
-      footer={
-        <>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#F1EFFB] via-white to-[#F1EFFB] px-6 py-12">
+      {/* Decorative background blobs */}
+      <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-primary-100/60 blur-3xl" />
+      <div className="absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-gold-100/60 blur-3xl" />
+
+      {/* Main Card */}
+      <div className="relative z-10 w-full max-w-md rounded-3xl bg-white p-8 shadow-pop sm:p-10">
+        {/* Logo at the top */}
+        <div className="mb-8 flex justify-center">
+          <Link href="/">
+            <Logo />
+          </Link>
+        </div>
+
+        <h1 className="text-2xl font-bold text-ink-900 sm:text-[28px]">
+          Create your account
+        </h1>
+        <p className="mt-2 mb-8 text-sm text-ink-500">
+          Start tracking expenses and budgets in minutes.
+        </p>
+
+        <form className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="First name" type="text" placeholder="Marcos" />
+            <Field label="Last name" type="text" placeholder="Kahn" />
+          </div>
+          <Field label="Email" type="email" placeholder="marcos@company.com" />
+          <Field label="Password" type="password" placeholder="••••••••" />
+
+          
+          <button
+            type="submit"
+            className="mt-2 rounded-2xl bg-primary-500 py-3.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-600"
+          >
+            Create account
+          </button>
+        </form>
+
+        
+
+        <p className="mt-8 text-center text-sm text-ink-500">
           Already have an account?{" "}
           <Link href="/login" className="font-semibold text-primary-500">
             Log in
           </Link>
-        </>
-      }
-    >
-      <form className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="First name" type="text" placeholder="Marcos" />
-          <Field label="Last name" type="text" placeholder="Kahn" />
-        </div>
-        <Field label="Email" type="email" placeholder="marcos@company.com" />
-        <Field label="Password" type="password" placeholder="••••••••" />
-
-        <label className="flex items-start gap-2 text-xs text-ink-500">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-4 w-4 rounded border-lavender-300 text-primary-500 focus:ring-primary-400"
-          />
-          I agree to the Terms of Service and Privacy Policy
-        </label>
-
-        <button
-          type="submit"
-          className="mt-2 rounded-2xl bg-primary-500 py-3.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-600"
-        >
-          Create account
-        </button>
-      </form>
-
-      <div className="my-6 flex items-center gap-3 text-xs text-ink-400">
-        <span className="h-px flex-1 bg-lavender-200" />
-        or continue with
-        <span className="h-px flex-1 bg-lavender-200" />
+        </p>
       </div>
-
-      <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-lavender-200 bg-white py-3 text-sm font-medium text-ink-700 transition-colors hover:bg-lavender-50">
-        <GoogleIcon />
-        Google
-      </button>
-    </AuthLayout>
+    </div>
   );
 }
 
