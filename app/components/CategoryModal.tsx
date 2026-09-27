@@ -1,5 +1,6 @@
 "use client";
 
+import { getSession } from "@/lib/auth/session";
 import { useState } from "react";
 
 export type CategoryType = "income" | "expense";
@@ -47,12 +48,13 @@ export default function CategoryModal({
     }
 
     setLoading(true);
+    const user = await getSession();
     try {
       const res = await fetch("/api/categories", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": DEV_USER_ID,
+          "x-user-id": user?.userId || "",
         },
         body: JSON.stringify({ name: name.trim(), type }),
       });
@@ -183,4 +185,4 @@ export default function CategoryModal({
 
 // ⚠️ DEV ONLY — replace with the real logged-in user's _id
 // (paste the `_id` from MongoDB Compass → expensemate → users)
-const DEV_USER_ID = "PASTE-REAL-USER-_id-HERE";
+// const DEV_USER_ID = "PASTE-REAL-USER-_id-HERE";

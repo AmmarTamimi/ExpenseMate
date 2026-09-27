@@ -1,7 +1,8 @@
 "use client";
 
+import { getSession } from "@/lib/auth/session";
 import { useEffect, useState } from "react";
-import { DEV_USER_ID } from "@/lib/devUser";
+// import { DEV_USER_ID } from "@/lib/devUser";
 
 export type TransactionType = "income" | "expense";
 
@@ -46,8 +47,9 @@ export default function TransactionModal({
     (async () => {
       try {
         setLoadingCategories(true);
+        const user = await getSession();
         const res = await fetch("/api/categories", {
-          headers: { "x-user-id": DEV_USER_ID },
+          headers: { "x-user-id": user?.userId || "" },
         });
         const data = await res.json();
         if (!cancelled && res.ok) {
@@ -104,12 +106,13 @@ export default function TransactionModal({
     }
 
     setLoading(true);
+    const user = await getSession();
     try {
       const res = await fetch("/api/transactions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": DEV_USER_ID,
+          "x-user-id": user?.userId || "",
         },
         body: JSON.stringify({
           type,

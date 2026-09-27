@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/db";
 import { Transaction, Category } from "@/lib/models";
 import { getAuthUser } from "@/lib/auth";
+import { getSession } from "@/lib/auth/session";
 
 /* ---------- GET: list all transactions for the logged-in user ---------- */
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const user = await getAuthUser(req);
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const transactions = await Transaction.find({ userId: user._id })
+    const transactions = await Transaction.find({ userId: user.userId })
       .populate("catId", "name type")
       .sort({ date: -1 });
 
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const user = await getAuthUser(req);
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (category.userId.toString() !== user._id.toString()) {
+    if (category.userId.toString() !== user.userId.toString()) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     const transaction = await Transaction.create({
       type,
       catId: category._id,
-      userId: user._id,
+      userId: user.userId,
       amount: numericAmount,
       date: date ? new Date(date) : new Date(),
       note: (note ?? "").trim(),

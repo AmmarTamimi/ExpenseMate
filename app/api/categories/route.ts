@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/db";
 import { Category } from "@/lib/models";
 import { getAuthUser } from "@/lib/auth";
+import { getSession } from "@/lib/auth/session";
 
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
-    const user = await getAuthUser(req);
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const categories = await Category.find({ userId: user._id }).sort({
+    const categories = await Category.find({ userId: user.userId }).sort({
       createdAt: -1,
     });
     return NextResponse.json(categories);
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
-    const user = await getAuthUser(req);
+    const user = await getSession();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     const existing = await Category.findOne({
-      userId: user._id,
+      userId: user.userId,
       name: name.trim(),
       type,
     });
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     const category = await Category.create({
       name: name.trim(),
       type,
-      userId: user._id,
+      userId: user.userId,
     });
 
     return NextResponse.json(category, { status: 201 });

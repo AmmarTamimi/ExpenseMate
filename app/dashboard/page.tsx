@@ -844,7 +844,8 @@ import TopBar from "../components/TopBar";
 import Sidebar from "../components/Sidebar";
 import CategoryModal from "../components/CategoryModal";
 import TransactionModal from "../components/TransactionModal";
-import { DEV_USER_ID } from "@/lib/devUser";
+import { getSession } from "@/lib/auth/session";
+// import { DEV_USER_ID } from "@/lib/devUser";
 
 /* ---------- Types ---------- */
 
@@ -890,11 +891,12 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<TransactionFromAPI[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const user = await getSession();
   /* ----- Load categories ----- */
   const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch("/api/categories", {
-        headers: { "x-user-id": DEV_USER_ID },
+        headers: { "x-user-id": user?.userId || ""},
       });
       const data = await res.json();
       if (res.ok) setCategories(data);
