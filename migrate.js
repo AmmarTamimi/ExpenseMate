@@ -11,28 +11,18 @@ const MONGO_URI = process.env.MONGODB_URI;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// 🛑 STOP IF VARIABLES ARE MISSING
-if (!MONGO_URI) {
-  console.error("❌ ERROR: MONGODB_URI is missing from .env.local");
-  process.exit(1);
-}
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error("❌ ERROR: Supabase credentials missing from .env.local");
+if (!MONGO_URI || !SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error("❌ ERROR: Missing environment variables in .env.local");
   process.exit(1);
 }
 
 console.log("✅ Environment variables loaded successfully!");
-console.log("📡 Connecting to MongoDB Atlas...");
 
-// Now it is safe to initialize
 const mongoClient = new MongoClient(MONGO_URI);
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// Maps to link old Mongo ObjectIds to new Supabase UUIDs
 const userIdMap = new Map();
 const categoryIdMap = new Map();
-
-// ... (Keep the rest of your migrate() function exactly the same) ...
 
 async function migrate() {
   console.log('🚀 Starting Migration...');
@@ -41,7 +31,15 @@ async function migrate() {
     await mongoClient.connect();
     console.log('✅ Connected to MongoDB');
     
-    const db = mongoClient.db('expense-tracker'); // Change this if your DB name is different
+    // 1. DOUBLE CHECK YOUR DATABASE NAME HERE
+    const db = mongoClient.db('test'); 
+    
+    // Diagnostic: Let's see what collections actually exist
+    const collections = await db.listCollections().toArray();
+    console.log("📂 Found Collections:", collections.map(c => c.name));
+    if (collections.length === 0) {
+        console.log("⚠️ No collections found. Is your database name correct?");
+    }
 
     // ==========================================
     // 1. MIGRATE USERS
@@ -62,12 +60,8 @@ async function migrate() {
         created_at: user.createdAt || new Date().toISOString(),
       });
 
-      if (error) {
-        if (error.code === '23505') { // Postgres unique violation (email exists)
-            console.log(`⚠️ User ${user.email} already exists, skipping.`);
-        } else {
-            console.error(`❌ Failed to insert user ${user.email}:`, error);
-        }
+      if (error && error.code !== '23505') {
+        console.error(`❌ Failed to insert user ${user.email}:`, error.message);
       }
     }
     console.log(`✅ Migrated ${users.length} Users.`);
@@ -82,9 +76,11 @@ async function migrate() {
       const newCatId = randomUUID();
       categoryIdMap.set(cat._id.toString(), newCatId);
       
-      const newUserId = userIdMap.get(cat.userId.toString());
+      // Handle different possible field names in your DB
+      const oldUserId = (cat.userId || cat.user_id)?.toString();
+      const newUserId = userIdMap.get(oldUserId);
 
-      if (!newUserId) continue; // Skip if user wasn't migrated
+      if (!newUserId) continue; 
 
       const { error } = await supabase.from('categories').insert({
         id: newCatId,
@@ -104,8 +100,11 @@ async function migrate() {
     const transactions = await db.collection('transactions').find({}).toArray();
     
     for (const t of transactions) {
-      const newUserId = userIdMap.get(t.userId.toString());
-      const newCatId = categoryIdMap.get(t.catId.toString());
+      const oldUserId = (t.userId || t.user_id)?.toString();
+      const oldCatId = (t.catId || t.categoryId)?.toString();
+      
+      const newUserId = userIdMap.get(oldUserId);
+      const newCatId = categoryIdMap.get(oldCatId);
 
       if (!newUserId || !newCatId) {
           console.log(`⚠️ Skipping transaction: Missing mapped User or Category.`);
@@ -129,13 +128,15 @@ async function migrate() {
     // ==========================================
     // 4. MIGRATE BUDGETS (If you have them)
     // ==========================================
-    // Note: If you haven't built budgets in Mongo yet, this will just be empty
     const budgets = await db.collection('budgets').find({}).toArray();
     if (budgets.length > 0) {
         console.log('⏳ Migrating Budgets...');
         for (const b of budgets) {
-            const newUserId = userIdMap.get(b.userId.toString());
-            const newCatId = categoryIdMap.get(b.catId.toString());
+            const oldUserId = (b.userId || b.user_id)?.toString();
+            const oldCatId = (b.catId || b.categoryId)?.toString();
+            
+            const newUserId = userIdMap.get(oldUserId);
+            const newCatId = categoryIdMap.get(oldCatId);
 
             if (!newUserId || !newCatId) continue;
 
