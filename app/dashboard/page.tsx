@@ -275,7 +275,7 @@ export default function DashboardPage() {
         date: new Date(t.date).toLocaleDateString(),
         amount: `${t.type === "expense" ? "-" : "+"}${t.amount.toFixed(2)}€`,
         status: t.type === "income" ? "Approved" : "Pending",
-        icon: t.type === "income" ? "💰" : "💸",
+        icon: t.type === "income" ? "IN" : "EX",
       })),
     [transactions]
   );
@@ -422,7 +422,7 @@ export default function DashboardPage() {
           <StatCard
             label="Total Balance"
             value={`${balance.toFixed(2)}€`}
-            hint="Income − Expenses"
+            hint="Income minus Expenses"
             icon={Wallet}
             tone="primary"
           />
@@ -503,16 +503,38 @@ export default function DashboardPage() {
                   onDelete={async () => {
                     if (!b.budgetId) return;
                     if (!confirm(`Delete budget for "${b.name}"?`)) return;
-                    const res = await fetch(`/api/budgets/${b.budgetId}`, {
-                      method: "DELETE",
-                      credentials: "include",
-                      headers: { "x-user-id": userId },
-                    });
-                    if (res.ok || res.status === 204) {
+
+                    try {
+                      const res = await fetch(`/api/budgets/${b.budgetId}`, {
+                        method: "DELETE",
+                        credentials: "include",
+                        headers: { "x-user-id": userId },
+                      });
+
+                      if (!res.ok && res.status !== 204) {
+                        const text = await res.text();
+                        let msg = "Failed to delete budget";
+                        try {
+                          const parsed = JSON.parse(text);
+                          if (parsed.error) msg = parsed.error;
+                        } catch {
+                          // body was empty or not JSON
+                        }
+                        alert(msg);
+                        console.error("DELETE budget failed:", res.status, text);
+                        return;
+                      }
+
+                      // Optimistic: remove from local state immediately
+                      setBudgetsAPI((prev) =>
+                        prev.filter((x) => x._id !== b.budgetId)
+                      );
+
+                      // Then refetch to sync with the server
                       await refreshAll();
-                    } else {
-                      const data = await res.json();
-                      alert(data.error || "Failed to delete budget");
+                    } catch (err) {
+                      console.error("Delete budget network error:", err);
+                      alert("Network error. Please try again.");
                     }
                   }}
                 />
@@ -746,7 +768,7 @@ function CategoryBudgetCard({
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
-          {budget.budgetId && (
+          {/* {budget.budgetId && (
             <button
               onClick={onDelete}
               className="rounded-full p-1 text-ink-400 hover:bg-red-50 hover:text-red-500"
@@ -766,7 +788,7 @@ function CategoryBudgetCard({
                 />
               </svg>
             </button>
-          )}
+          )} */}
         </div>
       </div>
 
